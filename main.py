@@ -163,7 +163,16 @@ class BaseLogic:
             self.print_financial_indicators(chosen_company_ticker)
 
     def print_financial_indicators(self, company_ticker):
+        indicator_dict = self.financial_indicators(company_ticker)
+        session = self.Session()
+        query = select(Companies).where(Companies.ticker == company_ticker)
+        company = session.scalar(query)
+        print(company.ticker, company.name)
+        for key, value in indicator_dict.items():
+            print(f'{key} = {value}')
 
+
+    def financial_indicators(self, company_ticker):
         def verified_division_round(a, b):
             if a is None or b is None:
                 return 'None'
@@ -173,18 +182,6 @@ class BaseLogic:
         session = self.Session()
         query = select(Financial).where(Financial.ticker == company_ticker)
         financial = session.scalar(query)
-        query = select(Companies).where(Companies.ticker == company_ticker)
-        company = session.scalar(query)
-        # print(financial.ticker)
-        # print(financial.ebitda)
-        # print(financial.sales)
-        # print(financial.net_profit)
-        # print(financial.market_price)
-        # print(financial.net_debt)
-        # print(financial.assets)
-        # print(financial.equity)
-        # print(financial.cash_equivalents)
-        # print(financial.liabilities)
         # P/E = Market price / Net profit
         # P/S = Market price / Sales
         # P/B = Market price / Assets
@@ -192,22 +189,18 @@ class BaseLogic:
         # ROE = Net profit / Equity
         # ROA = Net profit / Assets
         # L/A = Liabilities / Assets
-        print(company.ticker, company.name)
-        p_e = verified_division_round(financial.market_price, financial.net_profit)
-        p_s = verified_division_round(financial.market_price, financial.sales)
-        p_b = verified_division_round(financial.market_price , financial.assets)
-        nd_ebitda = verified_division_round(financial.net_debt , financial.ebitda)
-        roe = verified_division_round(financial.net_profit , financial.equity)
-        roa = verified_division_round(financial.net_profit , financial.assets)
-        l_a = verified_division_round(financial.liabilities , financial.assets)
+        indicators = {'ticker': company_ticker}
 
-        print('P/E =', p_e)
-        print('P/S =', p_s)
-        print('P/B =', p_b)
-        print('ND/EBITDA =', nd_ebitda)
-        print('ROE =', roe)
-        print('ROA =', roa)
-        print('L/A =', l_a)
+        indicators['P/E'] = verified_division_round(financial.market_price, financial.net_profit)
+        indicators['P/S'] = verified_division_round(financial.market_price, financial.sales)
+        indicators['P/B'] = verified_division_round(financial.market_price , financial.assets)
+        indicators['ND/EBITDA'] = verified_division_round(financial.net_debt , financial.ebitda)
+        indicators['ROE'] = verified_division_round(financial.net_profit , financial.equity)
+        indicators['ROA'] = verified_division_round(financial.net_profit , financial.assets)
+        indicators['L/A'] = verified_division_round(financial.liabilities , financial.assets)
+        session.close()
+        return indicators
+
 
     def update_company_from_base(self):
         chosen_company_ticker = self.retrieve_company()
@@ -287,6 +280,24 @@ class BaseLogic:
             sorted_company_dict = dict(sorted(companies_dictionary_with_string_in_name.items(), key=operator.itemgetter(0)))
             self.print_list_of_companies_from_dict(sorted_company_dict, prefix=False, ticker=True, sector=True)
 
+    def print_top_ten_according_to_indicator(self, indicator='all'):
+        # TODO dokończy tą funckję
+        session = self.Session()
+        query = select(Companies.ticker)
+        results = session.scalars(query).all()
+        all_companies_indicator_dict = {}
+        for ticker in results:
+            indicator_calculated = self.financial_indicators(ticker)[indicator]
+            if indicator_calculated != 'None':
+                all_companies_indicator_dict[ticker] = indicator_calculated
+        sorted_dict_by_indicator = dict(sorted(all_companies_indicator_dict.items(), key=operator.itemgetter(1), reverse=True))
+        print('TICKER', indicator)
+        count = 0
+        for key, value in sorted_dict_by_indicator.items():
+            count = count + 1
+            print(key, value)
+            if count == 10:
+                break
 
 class TableElements(Enum):
     Financial = {'ticker': "Enter ticker (in the format 'MOON'):",
@@ -371,19 +382,20 @@ class Main_Logic():
                     self.program_status = 'MAIN MENU'
                     continue
                 case 'TOP TEN MENU', '1':
-                    print(ni)
+                    database_engine.print_top_ten_according_to_indicator(indicator='ND/EBITDA')
                     self.program_status = 'MAIN MENU'
                     continue
                 case 'TOP TEN MENU', '2':
-                    print(ni)
+                    database_engine.print_top_ten_according_to_indicator(indicator='ROE')
                     self.program_status = 'MAIN MENU'
                     continue
                 case 'TOP TEN MENU', '3':
-                    print(ni)
+                    database_engine.print_top_ten_according_to_indicator(indicator='ROA')
                     self.program_status = 'MAIN MENU'
                     continue
                 case 'TOP TEN MENU', _:
                     print(io)
+                    self.program_status = 'MAIN MENU'
                     continue
 
 
